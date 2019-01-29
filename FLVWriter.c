@@ -160,7 +160,9 @@ do \
 }while(0)
 
 
-#pragma pack (1)
+
+
+#pragma pack(1)
 
 #if __BYTE_ORDER__==__ORDER_BIG_ENDIAN__
     typedef struct
@@ -312,11 +314,6 @@ typedef struct
     #error  need define __BYTE_ORDER__
 #endif
 
-#pragma pack ()
-
-
-
-
 /*
 Format of SoundData.
 0 = Linear PCM, platform endian
@@ -367,7 +364,6 @@ SoundType
 #endif
 
 
-
 /*
 AACPacketType
 0:AAC sequence header  1:AAC raw
@@ -379,6 +375,7 @@ typedef struct
 }T_AACPacketHeader;
 
 
+#pragma pack()
 
 
 
@@ -393,7 +390,7 @@ typedef struct
 
 
 
-
+/* http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
 static s8 GetSampleRateID(u32 SamplRate)
 {
     switch (SamplRate)
@@ -994,5 +991,3 @@ s32 FLV_GetStreamHeader(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
 
     return pCur - pBuf;
 }
-
-

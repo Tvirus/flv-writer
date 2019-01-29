@@ -2,6 +2,33 @@
 #define _FLVWRITER_H_
 
 
+#ifndef u8
+    #define u8   unsigned char
+#endif
+#ifndef s8
+    #define s8     signed char
+#endif
+#ifndef u16
+    #define u16  unsigned short
+#endif
+#ifndef s16
+    #define s16    signed short
+#endif
+#ifndef u32
+    #define u32  unsigned int
+#endif
+#ifndef s32
+    #define s32    signed int
+#endif
+#ifndef u64
+    #define u64  unsigned long long
+#endif
+#ifndef s64
+    #define s64    signed long long
+#endif
+
+
+/* http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
 #define MP4_AUDIO_TYPE_INVALID      0
 #define MP4_AUDIO_TYPE_AAC_MAIN     1
 #define MP4_AUDIO_TYPE_AAC_LC       2
