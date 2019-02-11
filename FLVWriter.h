@@ -64,4 +64,10 @@ s32 FLV_Get264Tag_SPS(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize);
 s32 FLV_Get264Tag(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize, u32 TimeStamp);
 s32 FLV_GetAACTag(u8 *pBuf, u32 BufSize, u8 *pAACData, u32 DataSize, u32 TimeStamp);
 
+
+void* FLV_CreateFile(const char *pFileName, T_FLVConfig *pConf);
+s32   FLV_Write264(void *pFileInfo, const u8 *pH264Data, u32 Size, u32 TimeStamp);
+s32   FLV_WriteAAC(void *pFileInfo, const u8 *pAACData, u32 Size, u32 TimeStamp);
+void  FLV_CloseFile(void *pFileInfo);
+
 #endif

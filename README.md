@@ -24,3 +24,5 @@ FLV_Get264Tag() 和 FLV_GetAACTag() 返回一般的 264Tag 和 AACTag
  7. 传入的 AAC 数据需要去掉前7个或9个字节的 adts 头
 
  8. 把生成的数据存到文件后就是 FLV 视频文件，不过主要针对实时视频，所以ScriptTag中未写文件大小和持续时间
+
+ 9. 时间戳要从0开始

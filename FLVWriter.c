@@ -1,4 +1,7 @@
 #include "FLVWriter.h"
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 
 /* file */
@@ -160,9 +163,7 @@ do \
 }while(0)
 
 
-
-
-#pragma pack(1)
+#pragma pack (1)
 
 #if __BYTE_ORDER__==__ORDER_BIG_ENDIAN__
     typedef struct
@@ -314,6 +315,7 @@ typedef struct
     #error  need define __BYTE_ORDER__
 #endif
 
+
 /*
 Format of SoundData.
 0 = Linear PCM, platform endian
@@ -364,6 +366,7 @@ SoundType
 #endif
 
 
+
 /*
 AACPacketType
 0:AAC sequence header  1:AAC raw
@@ -375,13 +378,23 @@ typedef struct
 }T_AACPacketHeader;
 
 
-#pragma pack()
+
+#pragma pack ()
 
 
 
 
 
 
+typedef struct
+{
+    FILE *fp;
+    u8 *pBuf;
+    u32 BufSize;
+    u32 Duration; /* in ms */
+    u8  HaveWritenSPS;
+
+}T_FileInfo;
 
 
 
@@ -437,11 +450,11 @@ static s32 GetAudioSpecificConfig(u8 *pBuf, u32 Size, u8 AudioType, u32 SampleRa
 
 
 /* 返回的数据包括起始的4个字节0x00000001 */
-static u8* Find264Nalu(u8 *pData, u32 Size, u8 *pNaluType, u32 *pNaluSize)
+static u8* Find264Nalu(const u8 *pData, u32 Size, u8 *pNaluType, u32 *pNaluSize)
 {
-    u8 *pEnd;
-    u8 *pCur;
-    u8 *pOut;
+    const u8 *pCur;
+    const u8 *pEnd;
+    const u8 *pOut;
     u8  NaluType;
 
 
@@ -466,7 +479,7 @@ static u8* Find264Nalu(u8 *pData, u32 Size, u8 *pNaluType, u32 *pNaluSize)
     if (1 == NaluType || 5 == NaluType) /* P帧、I帧, 假设每一包里P帧I帧都是最后一个 */
     {
         *pNaluSize  = Size - (pCur - pData);
-        return pCur;
+        return (u8*)pCur;
     }
 
     pOut = pCur;
@@ -482,11 +495,11 @@ static u8* Find264Nalu(u8 *pData, u32 Size, u8 *pNaluType, u32 *pNaluSize)
     if (pCur <= pEnd)
     {
         *pNaluSize  = pCur - pOut;
-        return pOut;
+        return (u8*)pOut;
     }
 
     *pNaluSize  = Size - (pOut - pData);
-    return pOut;
+    return (u8*)pOut;
 }
 
 static s32 GetFileHeader(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
@@ -593,7 +606,7 @@ static s32 GetVideoHeader(u8 *pBuf, u32 Size, u8 FrameType, u8 CodecID, u8 Packe
     return sizeof(*pVideoHeader) + sizeof(*pAVCHeader);
 }
 
-static s32 GetAVCDecoderConfig(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize)
+static s32 GetAVCDecoderConfig(u8 *pBuf, u32 BufSize, const u8 *pH264Data, u32 DataSize)
 {
     u8 *pCur = pBuf;
     u8 *pNalu;
@@ -742,7 +755,7 @@ static s32 GetScriptTag(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
     return TagSize + 4;
 }
 
-s32 FLV_Get264Tag_SPS(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize)
+s32 FLV_Get264Tag_SPS(u8 *pBuf, u32 BufSize, const u8 *pH264Data, u32 DataSize)
 {
     u8 *pCur = pBuf;
     u32 TagSize;
@@ -785,10 +798,10 @@ s32 FLV_Get264Tag_SPS(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize)
 }
 
 
-s32 FLV_Get264Tag(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize, u32 TimeStamp)
+s32 FLV_Get264Tag(u8 *pBuf, u32 BufSize, const u8 *pH264Data, u32 DataSize, u32 TimeStamp)
 {
+    const u8 *pNalu;
     u8 *pCur = pBuf;
-    u8 *pNalu;
     u8  NaluType;
     u32 NaluSize = 0;
     u32 TagSize;
@@ -840,7 +853,6 @@ s32 FLV_Get264Tag(u8 *pBuf, u32 BufSize, u8 *pH264Data, u32 DataSize, u32 TimeSt
 
     return TagSize + 4;
 }
-
 
 
 // 默认AAC
@@ -910,7 +922,7 @@ static s32 GetAACTag_First(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
 }
 
 
-s32 FLV_GetAACTag(u8 *pBuf, u32 BufSize, u8 *pAACData, u32 DataSize, u32 TimeStamp)
+s32 FLV_GetAACTag(u8 *pBuf, u32 BufSize, const u8 *pAACData, u32 DataSize, u32 TimeStamp)
 {
     u8 *pCur = pBuf;
     s32 HeaderSize;
@@ -990,4 +1002,137 @@ s32 FLV_GetStreamHeader(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
     }
 
     return pCur - pBuf;
+}
+
+
+void* FLV_CreateFile(const char *pFileName, T_FLVConfig *pConf)
+{
+    T_FileInfo *pFile;
+    s32 rst;
+    size_t size;
+
+
+    if (NULL == pFileName || NULL == pConf)
+        return NULL;
+
+    pFile = malloc(sizeof(*pFile));
+    if (NULL == pFile)
+        return NULL;
+
+    pFile->fp = fopen(pFileName, "wb");
+    if (NULL == pFile->fp)
+        goto ERR_1;
+
+    pFile->BufSize = 400*1024;
+    pFile->pBuf = malloc(pFile->BufSize);
+    if (NULL == pFile->pBuf)
+        goto ERR_2;
+
+    pFile->HaveWritenSPS = 0;
+    pFile->Duration = 0;
+
+    rst = FLV_GetStreamHeader(pConf, pFile->pBuf, pFile->BufSize);
+    if (0 > rst)
+        goto ERR_3;
+
+    size = fwrite(pFile->pBuf, 1, (size_t)rst, pFile->fp);
+    if (size != (size_t)rst)
+        goto ERR_3;
+
+    return (void *)pFile;
+
+
+    ERR_3:
+    free(pFile->pBuf);
+
+    ERR_2:
+    fclose(pFile->fp);
+
+    ERR_1:
+    free(pFile);
+
+    return NULL;
+}
+
+s32 FLV_Write264(void *pFileInfo, const u8 *pH264Data, u32 Size, u32 TimeStamp)
+{
+    T_FileInfo *pFile;
+    s32 rst;
+    size_t size;
+
+    if (NULL == pFileInfo || NULL == pH264Data)
+        return -1;
+
+    pFile = (T_FileInfo *)pFileInfo;
+
+    if (0 == pFile->HaveWritenSPS)
+    {
+        rst = FLV_Get264Tag_SPS(pFile->pBuf, pFile->BufSize, pH264Data, Size);
+        if (0 > rst)
+            return -1;
+
+        size = fwrite(pFile->pBuf, 1, (size_t)rst, pFile->fp);
+        if (size != (size_t)rst)
+            return -1;
+
+        pFile->HaveWritenSPS = 1;
+    }
+
+
+    rst = FLV_Get264Tag(pFile->pBuf, pFile->BufSize, pH264Data, Size, TimeStamp);
+    if (0 > rst)
+        return -1;
+
+    size = fwrite(pFile->pBuf, 1, (size_t)rst, pFile->fp);
+    if (size != (size_t)rst)
+        return -1;
+
+    if (TimeStamp > pFile->Duration)
+    {
+        pFile->Duration = TimeStamp;
+    }
+
+    return 0;
+}
+
+s32 FLV_WriteAAC(void *pFileInfo, const u8 *pAACData, u32 Size, u32 TimeStamp)
+{
+    T_FileInfo *pFile;
+    s32 rst;
+    size_t size;
+
+    if (NULL == pFileInfo || NULL == pAACData)
+        return -1;
+
+    pFile = (T_FileInfo *)pFileInfo;
+
+    rst = FLV_GetAACTag(pFile->pBuf, pFile->BufSize, pAACData, Size, TimeStamp);
+    if (0 > rst)
+        return -1;
+
+    size = fwrite(pFile->pBuf, 1, (size_t)rst, pFile->fp);
+    if (size != (size_t)rst)
+        return -1;
+
+    return 0;
+}
+
+void FLV_CloseFile(void *pFileInfo)
+{
+    T_FileInfo *pFile;
+
+    if (NULL == pFileInfo)
+        return;
+
+    pFile = (T_FileInfo *)pFileInfo;
+
+    if (NULL != pFile->fp)
+        fclose(pFile->fp);
+    pFile->fp = NULL;
+
+    if (NULL != pFile->pBuf)
+        free(pFile->pBuf);
+    pFile->pBuf = NULL;
+
+    free(pFileInfo);
 }
