@@ -1,7 +1,6 @@
 #include "FLVWriter.h"
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
 
 /* file */
@@ -64,6 +63,8 @@
 #define FLV_STRING_STEREO_LEN       (sizeof(FLV_STRING_STEREO) - 1)
 #define FLV_STRING_ACODECID         "audiocodecid"
 #define FLV_STRING_ACODECID_LEN     (sizeof(FLV_STRING_ACODECID) - 1)
+#define FLV_STRING_AUTHOR           "author"
+#define FLV_STRING_AUTHOR_LEN       (sizeof(FLV_STRING_AUTHOR) - 1)
 
 #define FLV_SCRIPT_VALUE_TYPE_NUM     0
 #define FLV_SCRIPT_VALUE_TYPE_BOOL    1
@@ -720,7 +721,6 @@ static s32 GetScriptTag(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
         WRITE_DOUBLE(pCur, Size, Value);
     }
 
-
     /* audio */
     if (pConf->AudioFlag)
     {
@@ -744,9 +744,13 @@ static s32 GetScriptTag(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
         WRITE_DOUBLE(pCur, Size, Value);
     }
 
+    WRITE_STRING(pCur, Size, FLV_STRING_AUTHOR, FLV_STRING_AUTHOR_LEN);
+    WRITE_U8(pCur, Size, FLV_SCRIPT_VALUE_TYPE_STRING);
+    WRITE_STRING(pCur, Size, "LLL", 3);
 
     /* body end */
     WRITE_U24(pCur, Size, 0x000009);
+
 
     TagSize = (u32)(pCur - pBuf);
     SetTagHeaderSize(pBuf, TagSize - HeaderSize);
