@@ -1,6 +1,7 @@
 #include "FLVWriter.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 /* file */
@@ -63,6 +64,8 @@
 #define FLV_STRING_STEREO_LEN       (sizeof(FLV_STRING_STEREO) - 1)
 #define FLV_STRING_ACODECID         "audiocodecid"
 #define FLV_STRING_ACODECID_LEN     (sizeof(FLV_STRING_ACODECID) - 1)
+#define FLV_STRING_DATE             "creationdate"
+#define FLV_STRING_DATE_LEN         (sizeof(FLV_STRING_DATE) - 1)
 #define FLV_STRING_AUTHOR           "author"
 #define FLV_STRING_AUTHOR_LEN       (sizeof(FLV_STRING_AUTHOR) - 1)
 
@@ -681,6 +684,10 @@ static s32 GetScriptTag(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
     u32 TagSize;
     double Value;
     u32 rst;
+    time_t Time;
+    struct tm Tm;
+    char aDateBuf[30];
+    int  DateLen;
 
 
     HeaderSize = GetTagHeader(pCur, Size, FLV_TAG_TYPE_SCRIPT, 0);
@@ -742,6 +749,16 @@ static s32 GetScriptTag(T_FLVConfig *pConf, u8 *pBuf, u32 Size)
         WRITE_U8(pCur, Size, FLV_SCRIPT_VALUE_TYPE_NUM);
         Value = (double)FLV_A_FORMATE_AAC;
         WRITE_DOUBLE(pCur, Size, Value);
+    }
+
+    time(&Time);
+    localtime_r(&Time, &Tm);
+    if (119 <= Tm.tm_year)
+    {
+        DateLen = snprintf(aDateBuf, 30, "%d-%02d-%02d %02d:%02d:%02d %s", Tm.tm_year + 1900, Tm.tm_mon + 1, Tm.tm_mday, Tm.tm_hour, Tm.tm_min, Tm.tm_sec, Tm.tm_zone);
+        WRITE_STRING(pCur, Size, FLV_STRING_DATE, FLV_STRING_DATE_LEN);
+        WRITE_U8(pCur, Size, FLV_SCRIPT_VALUE_TYPE_STRING);
+        WRITE_STRING(pCur, Size, aDateBuf, DateLen);
     }
 
     WRITE_STRING(pCur, Size, FLV_STRING_AUTHOR, FLV_STRING_AUTHOR_LEN);
